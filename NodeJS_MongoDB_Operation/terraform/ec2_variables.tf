@@ -25,18 +25,20 @@ resource "aws_instance" "web_server" {
 }
 
 resource "aws_security_group" "web_sg" {
-  name = "web-sg"
+  name_prefix = "web-sg-"
+
+  description = "Security group for NodeJS application"
 
   ingress {
-    from_port   = 80
-    to_port     = 80
+    from_port   = 22
+    to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-    from_port   = 22
-    to_port     = 22
+    from_port   = 5001
+    to_port     = 5001
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -47,13 +49,16 @@ resource "aws_security_group" "web_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-}
-resource "tls_private_key" "ec2_key" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
+
+  tags = {
+    Name = "web-sg"
+  }
 }
 
 resource "aws_key_pair" "ec2_key" {
   key_name   = "terraform-key"
   public_key = tls_private_key.ec2_key.public_key_openssh
+}
+resource "random_id" "suffix" {
+  byte_length = 4
 }
