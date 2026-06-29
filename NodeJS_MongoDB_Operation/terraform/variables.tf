@@ -9,3 +9,6 @@ variable "aws_region" {
   description = "AWS Region"
   type        = string
 }
+variable "key_name" {
+  default = "my-key"
+}

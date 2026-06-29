@@ -7,8 +7,12 @@ resource "aws_instance" "web_server" {
 
   ami           = "ami-0ec10929233384c7f"
   instance_type = var.instance_type
-  security_groups = ["default"]
-  
+  key_name = aws_key_pair.ec2_key.key_name
+
+  vpc_security_group_ids = [
+    aws_security_group.web_sg.id
+  ]
+
   root_block_device {
     volume_size           = 8
     volume_type           = "gp3"
@@ -49,4 +53,7 @@ resource "tls_private_key" "ec2_key" {
   rsa_bits  = 4096
 }
 
-
+resource "aws_key_pair" "ec2_key" {
+  key_name   = "terraform-key"
+  public_key = tls_private_key.ec2_key.public_key_openssh
+}
