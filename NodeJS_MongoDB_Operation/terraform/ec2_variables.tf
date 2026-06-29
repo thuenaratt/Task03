@@ -54,11 +54,3 @@ resource "aws_security_group" "web_sg" {
     Name = "web-sg"
   }
 }
-
-resource "aws_key_pair" "ec2_key" {
-  key_name   = "terraform-key"
-  public_key = tls_private_key.ec2_key.public_key_openssh
-}
-resource "random_id" "suffix" {
-  byte_length = 4
-}
