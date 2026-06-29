@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels: 
+    release: beta
+    type: poc
+  name: nodeapi-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      type: poc
+  template:
+    metadata:
+      labels:
+        release: beta
+        type: poc
+      name: nodeapi-pod
+    spec:
+      containers:
+      - name: nodejs-app
+        image: thuenaratt/register:latest
+        ports:
+          - containerPort: 5001

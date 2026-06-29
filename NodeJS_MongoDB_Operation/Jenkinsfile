@@ -1,0 +1,234 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_DIR = "NodeJS_MongoDB_Operation"
+        TF_DIR = "NodeJS_MongoDB_Operation/terraform"
+
+        IMAGE_NAME = "register"
+        IMAGE_TAG  = "latest"
+
+        AWS_DEFAULT_REGION = "us-east-1"
+    }
+
+    stages {
+
+        stage('Checkout Source') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Verify Tools') {
+            steps {
+                sh '''
+                    echo "===== Verify Installed Tools ====="
+
+                    git --version
+                    docker --version
+                    terraform version
+                    aws --version
+
+                    echo "=================================="
+                '''
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                dir("${APP_DIR}") {
+                    sh """
+                        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                    """
+                }
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+
+                    dir("${TF_DIR}") {
+
+                        sh '''
+                            terraform init
+                        '''
+
+                    }
+
+                }
+            }
+        }
+
+        stage('Terraform Validate') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+
+                    dir("${TF_DIR}") {
+
+                        sh '''
+                            terraform validate
+                        '''
+
+                    }
+
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+
+                    dir("${TF_DIR}") {
+
+                        sh '''
+                            terraform plan -out=tfplan
+                        '''
+
+                    }
+
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+               withCredentials([
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+
+                    dir("${TF_DIR}") {
+
+                        sh '''
+                            terraform apply -auto-approve tfplan
+                        '''
+
+                    }
+
+                }
+            }
+        }
+
+        stage('Get EC2 Public IP') {
+            steps {
+                script {
+
+                    env.EC2_IP = sh(
+                        script: "cd ${TF_DIR} && terraform output -raw public_ip",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "=================================="
+                    echo "EC2 Public IP: ${env.EC2_IP}"
+                    echo "=================================="
+
+                }
+            }
+        }
+
+        stage('Wait for EC2') {
+            steps {
+                echo "Waiting 60 seconds for EC2 startup..."
+                sleep(time: 60, unit: 'SECONDS')
+            }
+        }
+
+        stage('Deploy Application') {
+    steps {
+
+        sshagent(credentials: ['ec2-ssh']) {
+
+            sh """
+                ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} '
+                    mkdir -p ~/app
+                '
+            """
+
+            sh """
+                scp -o StrictHostKeyChecking=no -r ${APP_DIR}/* ubuntu@${EC2_IP}:~/app/
+            """
+
+            sh """
+                ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} '
+                    cd ~/app
+
+                    sudo apt update
+
+                    sudo apt install docker.io -y
+
+                    sudo systemctl enable docker
+
+                    sudo systemctl start docker
+
+                    sudo docker rm -f register || true
+
+                    sudo docker build -t register .
+
+                    sudo docker run -d \
+                        --name register \
+                        -p 5001:5001 \
+                        register
+                '
+            """
+
+        }
+    }
+}
+
+        stage('Health Check') {
+            steps {
+
+                sh """
+                    echo "=================================="
+                    echo "Application URL"
+                    echo "http://${EC2_IP}:5001"
+                    echo "=================================="
+
+                    curl --connect-timeout 5 http://${EC2_IP}:5001 || true
+                """
+
+            }
+        }
+
+    }
+
+    post {
+
+        success {
+
+            echo "======================================"
+            echo "PIPELINE SUCCESS"
+            echo "Application URL:"
+            echo "http://${EC2_IP}:5001"
+            echo "======================================"
+
+        }
+
+        failure {
+
+            echo "======================================"
+            echo "PIPELINE FAILED"
+            echo "======================================"
+
+        }
+
+        always {
+
+            cleanWs()
+
+        }
+
+    }
+
+}

@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodeapi-service
+spec:
+  type: NodePort
+  ports:
+    - targetport: 5001
+      port: 80
+
+  template:
+    metadata:
+      labels:
+        release: beta
+        type: poc
+      name: nodeapi-pod
+    spec:
+      containers:
+      - name: nodejs-app
+        image: thuenaratt/register:latest
+        ports:
+          - containerPort: 5001
