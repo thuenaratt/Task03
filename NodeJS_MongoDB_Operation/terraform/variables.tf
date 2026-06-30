@@ -1,14 +1,13 @@
 variable "instance_type" {
-  description = "EC2 Instance Type"
-  type        = string
-  default     = "t2.micro" # If terraform.tfvars is missing it will take t2.micro
-  # otherwise it will take from terraform.tfvars
+  type    = string
+  default = "t2.micro"
 }
 
 variable "aws_region" {
-  description = "AWS Region"
-  type        = string
+  type = string
 }
 variable "key_name" {
-  default = "my-key"
+  description = "Existing AWS EC2 Key Pair"
+  type        = string
+  default     = "mykeypair"
 }

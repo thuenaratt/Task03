@@ -1,13 +1,8 @@
-# main.tf is just a convention, not a requirement. 
-# Terraform merges all .tf files in the directory into a single 
-# configuration before planning and applying.
-
-# EC2 Instance
 resource "aws_instance" "web_server" {
 
   ami           = "ami-0ec10929233384c7f"
   instance_type = var.instance_type
-  key_name = aws_key_pair.ec2_key.key_name
+  key_name      = var.key_name
 
   vpc_security_group_ids = [
     aws_security_group.web_sg.id
@@ -19,15 +14,17 @@ resource "aws_instance" "web_server" {
     delete_on_termination = true
     encrypted             = true
   }
+
   tags = {
     Name = "StaticWebsiteServer"
   }
 }
 
 resource "aws_security_group" "web_sg" {
+
   name_prefix = "web-sg-"
 
-  description = "Security group for NodeJS application"
+  description = "Security group for NodeJS"
 
   ingress {
     from_port   = 22
