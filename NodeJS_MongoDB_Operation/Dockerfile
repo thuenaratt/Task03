@@ -3,5 +3,5 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-EXPOSE 5001
-CMD ["node", "registration.js"]
+EXPOSE 5002
+CMD ["node", "login.js"]
